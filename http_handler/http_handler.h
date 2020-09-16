@@ -100,8 +100,13 @@ private:
     sockaddr_in m_address;
     char m_read_buf[READ_BUFFER_SIZE];
     METHOD m_method;
+    
+    //use cgi
+    int cgi;    
 
     char m_filename[FILENAME_LEN];
+    int filename_offset;
+
     //for support Range
     off_t offset;        
     size_t end;

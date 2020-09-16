@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+#include "CGImysql/sql_connection.h"
 #include "http_handler/http_handler.h"
 
 const int MAXLINE = 1024;   /* max length of a line */
@@ -57,6 +58,8 @@ int main(int argc , char** argv){
 	for(int i = 0;i < 10;i ++){
 		int pid = fork();
 		if(pid == 0){   //child fd and this progress is blocked
+			sql_connection *conn = new sql_connection();
+			conn->init("localhost", "root", "888888", "webserver", 3306,1);
 			while(1){
 				connfd = Accept(listenfd,(struct sockaddr*)&clientaddr,&clientlen);
 				users[connfd].init(connfd, clientaddr);

@@ -10,6 +10,10 @@ void http_handler::init(int sockfd,const sockaddr_in &addr){
 	m_address = addr;
 	m_method = GET;
 	memset(m_read_buf, '\0', READ_BUFFER_SIZE);
+	
+	strcpy(m_filename,"root");
+	filename_offset = strlen(m_filename);
+	cgi = 0;
 }
 
 void http_handler::url_decode(char* src, char* dest, int max) {
@@ -43,7 +47,11 @@ http_handler::HTTP_CODE http_handler::process_read(){
 	if(strcasecmp(s_method,"GET") == 0){
 		m_method = GET;
 		printf("The request method is GET!");
-	}else{
+	}else if (strcasecmp(s_method, "POST") == 0){
+        	m_method = POST;
+        	cgi = 1;
+        }
+	else{
 		return BAD_REQUEST;	
 	}
 
@@ -54,12 +62,13 @@ http_handler::HTTP_CODE http_handler::process_read(){
 	}
 	*version ++ = '\0';
 	//version is not cared
+	
 
 
 	//handle uri
 	char* filename = uri;
 	if(uri[0] == '/'){
-		filename = uri + 1;
+		//filename = uri + 1;
 		int length = strlen(filename);
 		if (length == 0){
 			filename = ".";
@@ -72,7 +81,7 @@ http_handler::HTTP_CODE http_handler::process_read(){
 			}
 		}
     	}
-	url_decode(filename,m_filename, MAXLINE);
+	url_decode(filename,m_filename + strlen(m_filename), MAXLINE);
 
 	/*prase_headers*/
 	// \n || \r\n
@@ -138,6 +147,24 @@ void http_handler::process(){
 	process_read();
 	
 	struct stat sbuf;
+
+	if(strlen(m_filename + filename_offset) == 1){
+            strcat(m_filename, "index.html");
+	}else if(m_filename[filename_offset + 1] == '0'){
+	    strcpy(m_filename + filename_offset, "/register.html");
+	}else if(m_filename[filename_offset + 1] == '1'){
+	    strcpy(m_filename + filename_offset, "/log.html");
+	}
+
+	if(cgi == 1){
+	    if(strcmp(m_filename + filename_offset + 1,"login") == 0){
+	    	strcpy(m_filename + filename_offset, "/judge.html");
+	    }else if(m_filename[filename_offset] == '2' || m_filename[filename_offset] == '3'){
+	        //code 
+		 
+	    }
+	}
+
 
 	int status = 200, ffd = open(m_filename, O_RDONLY, 0);
 	    if(ffd <= 0){
