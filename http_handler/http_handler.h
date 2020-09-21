@@ -21,11 +21,14 @@
 #include <sys/uio.h>
 #include <sys/sendfile.h>
 
+#include <mysql/mysql.h>
 #include <unordered_map>
+#include <map>
 #include <string.h>
+#include <memory>
 
 #include "../socket_wrap/wrap.h"
-
+#include "../CGImysql/sql_connection.h"
 
 //static comprenhension >>> ?????
 
@@ -83,6 +86,8 @@ public:
 
 public:
     void init(int sockfd, const sockaddr_in &addr);
+    void initmysql(std::shared_ptr<sql_connection> _mysql);
+
     void process();
 private:
     HTTP_CODE process_read();
@@ -100,13 +105,16 @@ private:
     sockaddr_in m_address;
     char m_read_buf[READ_BUFFER_SIZE];
     METHOD m_method;
-    
+    std::map<std::string, std::string> users;
+
     //use cgi
     int cgi;    
+    std::shared_ptr<sql_connection> mmysql;
 
     char m_filename[FILENAME_LEN];
+    
     int filename_offset;
-
+    int m_content_length;
     //for support Range
     off_t offset;        
     size_t end;

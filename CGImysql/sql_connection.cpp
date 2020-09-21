@@ -12,10 +12,10 @@ using namespace std;
 
 sql_connection::sql_connection()
 {
-
+	con = nullptr;
 }
 
-MYSQL *GetConnection(){
+MYSQL *sql_connection::GetConnection(){
 	return con;
 }
 
@@ -32,9 +32,10 @@ void sql_connection::init(string url, string User, string PassWord, string DBNam
 
 	if (con == NULL)
 	{
-		cout << "Error:" << mysql_error(con);
+		cout << "Init Error:" << mysql_error(con);
 		exit(1);
 	}
+	
 	con = mysql_real_connect(con, url.c_str(), User.c_str(), PassWord.c_str(), DBName.c_str(), Port, NULL, 0);
 
 	if (con == NULL)
@@ -42,7 +43,6 @@ void sql_connection::init(string url, string User, string PassWord, string DBNam
 		cout << "Error: " << mysql_error(con);
 		exit(1);
 	}
-
 }
 
 

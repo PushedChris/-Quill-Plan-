@@ -1,11 +1,13 @@
 #include "http_handler.h"
 
 const int MAXLINE = 1024;
-static const char *http_handler::default_mime_type = "text/plain";
+static const char *http_handler::default_mime_type = "text/html";
 
 void http_handler::init(int sockfd,const sockaddr_in &addr){
 	offset = 0;
 	end = 0;
+	m_content_length = 0;
+
 	m_sockfd = sockfd;
 	m_address = addr;
 	m_method = GET;
@@ -13,7 +15,18 @@ void http_handler::init(int sockfd,const sockaddr_in &addr){
 	
 	strcpy(m_filename,"root");
 	filename_offset = strlen(m_filename);
+
 	cgi = 0;
+}
+
+void http_handler::initmysql(std::shared_ptr<sql_connection> _mysql){
+    mmysql = _mysql;
+/*
+    if (mysql_query(mmysql->GetConnection(), "SELECT username,passwd FROM user"))
+    {
+        printf("SELECT error:%s\n", mysql_error(mmysql->GetConnection()));
+    }
+*/
 }
 
 void http_handler::url_decode(char* src, char* dest, int max) {
@@ -86,13 +99,27 @@ http_handler::HTTP_CODE http_handler::process_read(){
 	/*prase_headers*/
 	// \n || \r\n
 	while(m_read_buf[0] != '\n' && m_read_buf[1] != '\n'){
-		Readline(m_sockfd,m_read_buf,MAXLINE);
-        	if(m_read_buf[0] == 'R' && m_read_buf[1] == 'a' && m_read_buf[2] == 'n'){
-            		sscanf(m_read_buf, "Range: bytes=%lu-%lu", &offset, &end);
+		int len = Readline(m_sockfd,m_read_buf,MAXLINE);
+		char *text = m_read_buf;
+        	if(strncasecmp(text, "Range:", 6) == 0){
+            		sscanf(text, "Range: bytes=%lu-%lu", &offset, &end);
             		// Range: [start, end]
             		if(end != 0) end ++;
-        	}
+        	}else if(strncasecmp(text, "Content-length:", 15) == 0){// important ==> lens
+			text[len] = '\0';
+			text += 15;
+			text += strspn(text, " \t");
+			m_content_length = atol(text);
+		}
 	}
+	
+	/*prase_content*/
+	if(m_content_length > 0){
+		int len = Readn(m_sockfd,m_read_buf,m_content_length);
+		m_read_buf[len] = '\0';
+		printf("content is %s", m_read_buf);
+	}
+
 }
 
 
@@ -131,8 +158,9 @@ void http_handler::serve_static(int out_fd, int in_fd,size_t total_size){
 
 	Writen(out_fd, buf, strlen(buf));
 	off_t t_offset = offset; /* copy */
+
 	while(t_offset < end){
-	    if(sendfile(out_fd, in_fd, &t_offset, end - offset) <= 0) {
+	    if(sendfile(out_fd, in_fd, &t_offset, end - offset) <= 0){
                 break;
             }
             printf("offset: %d \n\n", t_offset);
@@ -147,24 +175,89 @@ void http_handler::process(){
 	process_read();
 	
 	struct stat sbuf;
-
-	if(strlen(m_filename + filename_offset) == 1){
-            strcat(m_filename, "index.html");
-	}else if(m_filename[filename_offset + 1] == '0'){
-	    strcpy(m_filename + filename_offset, "/register.html");
-	}else if(m_filename[filename_offset + 1] == '1'){
-	    strcpy(m_filename + filename_offset, "/log.html");
-	}
-
-	if(cgi == 1){
-	    if(strcmp(m_filename + filename_offset + 1,"login") == 0){
+	    if(strlen(m_filename + filename_offset) == 1){
+                strcat(m_filename, "index.html");
+	    }else if(m_filename[filename_offset + 1] == '0'){
+	        strcpy(m_filename + filename_offset, "/register.html");
+	    }else if(m_filename[filename_offset + 1] == '1'){
+	        strcpy(m_filename + filename_offset, "/log.html");
+	    }else if(m_filename[filename_offset + 1] == '2'){
 	    	strcpy(m_filename + filename_offset, "/judge.html");
-	    }else if(m_filename[filename_offset] == '2' || m_filename[filename_offset] == '3'){
-	        //code 
-		 
 	    }
-	}
+	//cgi
+	   
 
+	   if(cgi == 1){
+		if(m_filename[filename_offset + 1] == '3' || m_filename[filename_offset + 1] == '4'){
+	        //code //user=123&passwd=123
+                char name[100], password[100];
+                int i;
+                for (i = 5; m_read_buf[i] != '&'; ++i)
+                name[i - 5] = m_read_buf[i];
+                name[i - 5] = '\0';
+
+                int j = 0;
+                for (i = i + 10; m_read_buf[i] != '\0'; ++i, ++j)
+                    password[j] = m_read_buf[i];
+                password[j] = '\0';
+
+		printf("\n name is %s\n password is %s",name,password);
+
+		char *sql_insert = (char *)malloc(sizeof(char) * 200);
+		    
+               if (m_filename[filename_offset + 1] == '3')
+               {
+                strcpy(sql_insert, "INSERT INTO user(username, passwd) VALUES(");
+                strcat(sql_insert, "'");
+                strcat(sql_insert, name);
+    
+                strcat(sql_insert, "', '");
+                strcat(sql_insert, password);
+                strcat(sql_insert, "')");
+    
+                   if (users.find(name) == users.end())
+                   {
+                       int res = mysql_query(mmysql->GetConnection(), sql_insert);
+                       users.insert(make_pair(name, password));
+    
+                       if (!res)
+		   	   strcpy(m_filename + filename_offset, "/log.html");
+                       else
+			   strcpy(m_filename + filename_offset, "/registerError.html");
+                   }
+                   else
+                       strcpy(m_filename + filename_offset, "/registerError.html");
+    		
+                }else if (m_filename[filename_offset + 1] == '4'){
+                    strcpy(sql_insert, "SELECT passwd FROM user where name = ");
+		    strcat(sql_insert, name);
+		    strcat(sql_insert, " limit 1;");
+
+
+		
+		    if (mysql_query(mmysql->GetConnection(), "SELECT username,passwd FROM user"))
+    		    {
+        		printf("SELECT error:%s\n", mysql_error(mmysql->GetConnection()));
+    		    }
+
+     		    MYSQL_RES *result = mysql_store_result(mmysql->GetConnection());
+
+    		    if(MYSQL_ROW row = mysql_fetch_row(result)){
+                        if (strcmp(row[0],name) == 0 && strcmp(row[1],password) == 0)
+			    strcpy(m_filename + filename_offset, "/index.html");
+                        else
+		            strcpy(m_filename + filename_offset, "/logError.html");
+		    }else
+		        strcpy(m_filename + filename_offset, "/logError.html");
+		
+	
+		}
+	    	free(sql_insert);
+	    }
+
+      	}
+
+	printf("\n filename is %s\n",m_filename);
 
 	int status = 200, ffd = open(m_filename, O_RDONLY, 0);
 	    if(ffd <= 0){

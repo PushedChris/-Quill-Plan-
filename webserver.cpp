@@ -16,8 +16,12 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+#include <memory>
 #include "CGImysql/sql_connection.h"
 #include "http_handler/http_handler.h"
+
+
+#define NODEBUG 0
 
 const int MAXLINE = 1024;   /* max length of a line */
 const int RIO_BUFSIZE = 1024;
@@ -55,19 +59,34 @@ int main(int argc , char** argv){
 	http_handler *users = new http_handler[MAX_FD];
 	assert(users);
 	
-	for(int i = 0;i < 10;i ++){
+	#ifdef NODEBUG
+	    for(int i = 0;i < 2;i++){
+        	close(i);
+    	    }
+	    //dev/null => 0
+    	    open("/dev/null",O_RDWR);
+    	    //dev/null => 1
+    	    open("/dev/null",O_RDWR);
+	#endif
+
+
+	for(int i = 0;i < 100;i ++){
 		int pid = fork();
 		if(pid == 0){   //child fd and this progress is blocked
-			sql_connection *conn = new sql_connection();
-			conn->init("localhost", "root", "888888", "webserver", 3306,1);
+			//sql_connection *conn = new sql_connection();
+			//use shared_ptr
+			std::shared_ptr<sql_connection> conn =
+ 			std::shared_ptr<sql_connection>(std::make_shared<sql_connection>());
+			conn->init("localhost", "root", "888888", "ttWebserver", 3306,1);
 			while(1){
 				connfd = Accept(listenfd,(struct sockaddr*)&clientaddr,&clientlen);
 				users[connfd].init(connfd, clientaddr);
+				users[connfd].initmysql(conn);
 				users[connfd].process();
 				Close(connfd);		
 			}
 		}else if(pid > 0){
-			printf("child pid is %d\n",pid);		
+			printf("child pid is %d\n",pid);	
 		}else{
 			perror("fork");		
 		}
