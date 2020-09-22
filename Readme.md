@@ -18,7 +18,7 @@ Linux下超轻量级Web服务器。
 
 多进程优点:解耦、模块化、方便调及重用。
 
-![TTWebServer](F:\git\TTWebServer\TTWebServer.png)
+![TTWebServer](https://github.com/PushedChris/-Quill-Plan-/blob/master/TTWebServer.png)
 
 ### 基础测试
 
@@ -78,7 +78,7 @@ Linux下超轻量级Web服务器。
 
 - QPS:35596
 
-![TTserver压力测试](F:\git\TTWebServer\TTserver压力测试.PNG)
+![TTserver压力测试](https://github.com/PushedChris/-Quill-Plan-/blob/master/TTserver%E5%8E%8B%E5%8A%9B%E6%B5%8B%E8%AF%95.PNG?raw=true)
 
 - 测试数据
 
@@ -88,4 +88,6 @@ Linux下超轻量级Web服务器。
 
   - 所有访问均成功
 
-### 浏览器演示![ttweb](F:\git\TTWebServer\ttweb.gif)
+### 浏览器演示
+
+### ![ttweb](https://github.com/PushedChris/-Quill-Plan-/blob/master/ttweb.gif?raw=true)
